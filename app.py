@@ -205,11 +205,8 @@ with st.sidebar:
         st.divider()
         
         st.markdown("**Conecta FRED**")
-        manual_context = st.text_area(
-            "Notas internas del equipo (opcional)",
-            value=st.session_state.get("manual_notes", ""),
-            height=150,
-        )
+
+
         fred_api_key = st.text_input("API key de FRED", type="password")
         default_series = st.session_state.get(
             "fred_selected", list(FRED_SERIES.keys())[:2]
