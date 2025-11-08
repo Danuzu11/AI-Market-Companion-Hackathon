@@ -1,0 +1,8 @@
+streamlit
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+pandas
+requests
+
