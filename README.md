@@ -1,6 +1,10 @@
-# AI Market Companion
+# ECOASIST
 
 Aplicación construida con Streamlit que combina datos macroeconómicos de múltiples fuentes (FRED, EODHD) con noticias en tiempo real (NewsAPI, NewsData.io) y un analista conversacional impulsado por LangChain y modelos servidos por Ollama. Permite a los miembros del equipo explorar indicadores macro clave, generar visualizaciones rápidas, analizar sentimiento de noticias y obtener un juicio cualitativo sobre el posible impacto en el índice S&P 500.
+
+## Video de la presentacion del proyecto
+
+https://youtu.be/GwSns5NNkeQ
 
 ## Características
 
