@@ -15,40 +15,64 @@ import google.generativeai as genai
 load_dotenv()
 
 FRED_SERIES: Dict[str, Dict[str, str]] = {
-    "PIB real (GDPC1)": {
-        "series_id": "GDPC1",
-        "value_format": "billions",
-        "description": "Producto Interno Bruto real de Estados Unidos (precios encadenados de 2017).",
-    },
-    "Tasa de desempleo (UNRATE)": {
-        "series_id": "UNRATE",
-        "value_format": "percent",
-        "description": "Tasa de desempleo civil en Estados Unidos.",
-    },
-    "Índice de precios al consumidor (CPIAUCSL)": {
-        "series_id": "CPIAUCSL",
-        "value_format": "index",
-        "description": "Índice de precios al consumidor para todos los consumidores urbanos.",
-    },
-    "Tipo de cambio real efectivo - Zona Euro (RBEREA)": {
-        "series_id": "RBEREA",
-        "value_format": "index",
-        "description": "Tipo de cambio real efectivo amplio para la Zona Euro.",
-    },
-    "Tipo de cambio real efectivo - Japón (RBERJP)": {
-        "series_id": "RBERJP",
-        "value_format": "index",
-        "description": "Tipo de cambio real efectivo amplio para Japón.",
-    },
-    "Tipo de cambio USD/EUR (DEXUSEU)": {
+    # Tipos de cambio - Europa
+    "USD/EUR (DEXUSEU)": {
         "series_id": "DEXUSEU",
-        "value_format": "index",
-        "description": "Dólares estadounidenses a tipo de cambio al contado del Euro.",
+        "value_format": "rate",
+        "description": "Dólares estadounidenses por Euro (tipo de cambio al contado).",
     },
-    "Tipo de cambio real efectivo - Hong Kong (RBERHK)": {
-        "series_id": "RBERHK",
+    "USD/GBP (DEXUSUK)": {
+        "series_id": "DEXUSUK",
+        "value_format": "rate",
+        "description": "Dólares estadounidenses por Libra Esterlina británica.",
+    },
+    "USD/CHF (DEXSZUS)": {
+        "series_id": "DEXSZUS",
+        "value_format": "rate",
+        "description": "Dólares estadounidenses por Franco Suizo.",
+    },
+    # Tipos de cambio - Asia
+    "JPY/USD (DEXJPUS)": {
+        "series_id": "DEXJPUS",
+        "value_format": "rate",
+        "description": "Yen japonés por Dólar estadounidense.",
+    },
+    "CNY/USD (DEXCHUS)": {
+        "series_id": "DEXCHUS",
+        "value_format": "rate",
+        "description": "Yuan chino por Dólar estadounidense.",
+    },
+    "HKD/USD (DEXHKUS)": {
+        "series_id": "DEXHKUS",
+        "value_format": "rate",
+        "description": "Dólar de Hong Kong por Dólar estadounidense.",
+    },
+    "KRW/USD (DEXKOUS)": {
+        "series_id": "DEXKOUS",
+        "value_format": "rate",
+        "description": "Won surcoreano por Dólar estadounidense.",
+    },
+    "SGD/USD (DEXSIUS)": {
+        "series_id": "DEXSIUS",
+        "value_format": "rate",
+        "description": "Dólar de Singapur por Dólar estadounidense.",
+    },
+    # Tipos de cambio - Australia
+    "AUD/USD (DEXUSAL)": {
+        "series_id": "DEXUSAL",
+        "value_format": "rate",
+        "description": "Dólar australiano por Dólar estadounidense.",
+    },
+    # Commodities e indicadores globales (impacto global en mercados)
+    "Petróleo WTI (DCOILWTICO)": {
+        "series_id": "DCOILWTICO",
+        "value_format": "dollars",
+        "description": "Precio del petróleo crudo West Texas Intermediate (dólares por barril).",
+    },
+    "VIX (VIXCLS)": {
+        "series_id": "VIXCLS",
         "value_format": "index",
-        "description": "Tipo de cambio real efectivo amplio para Hong Kong SAR.",
+        "description": "Índice de volatilidad CBOE VIX - indicador de miedo del mercado.",
     },
 }
 
@@ -86,7 +110,7 @@ def load_fred_series(
     api_key: str,
     start: datetime,
     end: datetime,
-    frequency: str,
+    frequency: Optional[str] = None,
 ) -> pd.DataFrame:
 
     # URL base de la API de FRED
@@ -99,8 +123,12 @@ def load_fred_series(
         "observation_start": start.strftime("%Y-%m-%d"),
         "observation_end": end.strftime("%Y-%m-%d"),
         "file_type": "json",
-        "frequency": frequency,
     }
+    
+    # Solo agregar frecuencia si no es la nativa (para tipos de cambio no especificar frecuencia)
+    # Los tipos de cambio tienen frecuencia nativa diaria en días hábiles
+    if frequency and frequency not in ["d", "daily"]:
+        params["frequency"] = frequency
 
     # Realizar la solicitud a la API de FRED
     response = requests.get(base_url, params=params, timeout=15)
@@ -125,6 +153,19 @@ def ensure_datetime(value) -> datetime:
     if isinstance(value, datetime):
         return value
     return datetime.combine(value, datetime.min.time())
+
+# Función para ajustar fecha al último día hábil si es fin de semana
+def adjust_to_last_business_day(dt: datetime) -> datetime:
+    """
+    Si la fecha cae en fin de semana, retrocede al viernes anterior.
+    0 = Lunes, 6 = Domingo
+    """
+    weekday = dt.weekday()
+    if weekday == 5:  # Sábado
+        dt = dt - timedelta(days=1)  # Retroceder a viernes
+    elif weekday == 6:  # Domingo
+        dt = dt - timedelta(days=2)  # Retroceder a viernes
+    return dt
 
 # Funcion para formatear los valores de las series
 def format_value(value: float, value_format: str) -> str:
@@ -327,36 +368,19 @@ with st.sidebar:
     st.caption("Configura las fuentes de datos que alimentarán al analista.")
 
     with st.form("data_controls"):
-        # Rango de análisis: 1 semana por defecto
+        # Rango de análisis: del 1 de enero al 31 de octubre de 2025
         date_range = st.date_input(
-            "Rango de análisis (última semana)",
+            "Rango de análisis",
             value=(
-                (datetime.now() - timedelta(days=7)).date(),
-                datetime.now().date(),
+                datetime(2025, 10, 10).date(),
+                datetime(2025, 10, 31).date(),
             ),
-        )
-        frequency = st.selectbox(
-            "Frecuencia de datos FRED",
-            options=[("d", "Diaria"), ("w", "Semanal"), ("m", "Mensual"), ("q", "Trimestral")],
-            index=0,
-            format_func=lambda option: option[1],
+            help="Rango de fechas para consultar datos económicos (FRED) y noticias"
         )
 
         st.divider()
         
-        st.markdown("**Conecta FRED**")
-        # Cargar desde .env o usar input del sidebar
-        default_fred_key = os.getenv("FRED_API_KEY", "")
-        fred_api_key = st.text_input(
-            "API key de FRED", 
-            type="password", 
-            key="fred_key",
-            value=st.session_state.get("fred_api_key", default_fred_key)
-        )
-        if fred_api_key:
-            st.session_state.fred_api_key = fred_api_key
-        st.caption("Obtén tu clave en fred.stlouisfed.org o configúrala en .env")
-        
+        st.markdown("**Series económicas FRED**")
         default_series = st.session_state.get(
             "fred_selected", list(FRED_SERIES.keys())
         )
@@ -367,45 +391,15 @@ with st.sidebar:
         )
         st.session_state.fred_selected = selected_series
 
-        st.divider()
-        
-        st.markdown("**Conecta NewsAPI**")
-        # Cargar desde .env o usar input del sidebar
-        default_news_key = os.getenv("NEWS_API_KEY", "")
-        news_api_key = st.text_input(
-            "API key de NewsAPI", 
-            type="password", 
-            key="news_key",
-            value=st.session_state.get("news_api_key", default_news_key)
-        )
-        if news_api_key:
-            st.session_state.news_api_key = news_api_key
-        st.caption("Obtén tu clave en newsapi.org o configúrala en .env")
-
-        st.divider()
-        
-        st.markdown("**Conecta Google Gemini**")
-        # Cargar desde .env o usar input del sidebar
-        default_gemini_key = os.getenv("GEMINI_API_KEY", "")
-        gemini_api_key_input = st.text_input(
-            "API key de Google Gemini", 
-            type="password", 
-            key="gemini_key",
-            value=st.session_state.get("gemini_api_key", default_gemini_key)
-        )
-        if gemini_api_key_input:
-            st.session_state.gemini_api_key = gemini_api_key_input
-        st.caption("Obtén tu clave en https://aistudio.google.com/app/apikey o configúrala en .env")
-
         submitted = st.form_submit_button("🔄 Actualizar datos y analizar")
     
     fred_refresh = submitted
     news_refresh = submitted
     
-    # Obtener API keys: primero del session_state, luego del .env
-    fred_api_key = st.session_state.get("fred_api_key", os.getenv("FRED_API_KEY", ""))
-    news_api_key = st.session_state.get("news_api_key", os.getenv("NEWS_API_KEY", ""))
-    gemini_api_key = st.session_state.get("gemini_api_key", os.getenv("GEMINI_API_KEY", ""))
+    # Obtener API keys desde configuración (variables de entorno)
+    fred_api_key = os.getenv("FRED_API_KEY", "")
+    news_api_key = os.getenv("NEWS_API_KEY", "")
+    gemini_api_key = os.getenv("GEMINI_API_KEY", "")
 
 # Descripción de la aplicación
 st.write("¡Bienvenido al **Analista Macroeconómico para el S&P 500**! 📊")
@@ -428,11 +422,19 @@ news_summary_state = st.session_state.setdefault("news_summary", "")
 
 start_dt = ensure_datetime(date_range[0])
 end_dt = ensure_datetime(date_range[1])
-frequency_code = frequency[0] if isinstance(frequency, tuple) else frequency
+
+# Ajustar fechas al último día hábil si caen en fin de semana
+original_end = end_dt
+start_dt = adjust_to_last_business_day(start_dt)
+end_dt = adjust_to_last_business_day(end_dt)
+
+# Informar al usuario si se ajustó la fecha
+if original_end != end_dt:
+    st.info(f"📅 La fecha seleccionada cae en fin de semana. Usando datos del último día hábil: {end_dt.date()}")
 
 if fred_refresh:
     if not fred_api_key:
-        st.warning("Ingresa tu API Key de FRED para descargar datos.")
+        st.warning("API Key de FRED no configurada. Configúrala en la variable de entorno FRED_API_KEY.")
     elif not selected_series:
         st.info("Selecciona al menos una serie económica de FRED.")
     else:
@@ -455,7 +457,7 @@ if fred_refresh:
                         fred_api_key,
                         start_dt,
                         end_dt,
-                        frequency_code,
+                        None,  # Sin frecuencia específica, usar la nativa de la serie
                     )
                     print(
                         f"[FRED] {metadata['series_id']} -> {len(df)} observaciones recibidas."
@@ -505,8 +507,9 @@ if fred_refresh:
                 else:
                     feedback_messages.append(
                         (
-                            "info",
-                            f"No hay observaciones disponibles para {series_name} en el rango seleccionado.",
+                            "warning",
+                            f"No hay observaciones para {series_name} en el rango seleccionado. "
+                            f"Intenta seleccionar una fecha menos reciente o un rango más amplio.",
                         )
                     )
                     print(
@@ -533,7 +536,7 @@ elif "fred_feedback" not in st.session_state:
 # Cargar noticias desde NewsAPI
 if news_refresh:
     if not news_api_key:
-        st.warning("Ingresa tu API Key de NewsAPI para descargar noticias.")
+        st.warning("API Key de NewsAPI no configurada. Configúrala en la variable de entorno NEWS_API_KEY.")
     else:
         print(f"[NewsAPI] Solicitando noticias desde {start_dt.date()} hasta {end_dt.date()}")
         feedback_messages_news: List[tuple[str, str]] = []
@@ -581,12 +584,14 @@ def generate_analysis_with_gemini(
         genai.configure(api_key=api_key)
         
         # Seleccionar modelo
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         # Construir el prompt
         system_prompt = """Eres un analista macroeconómico experto especializado en predecir el impacto de eventos internacionales 
 en el mercado estadounidense. Tu tarea es analizar noticias y datos económicos de Asia, Australia y Europa 
 para inferir el impacto potencial en el índice S&P 500.
+
+IMPORTANTE: Debes responder SIEMPRE en ESPAÑOL.
 
 Debes proporcionar:
 1. **PREDICCIÓN DE IMPACTO**: Una de estas tres opciones:
@@ -603,7 +608,7 @@ Debes proporcionar:
 
 3. **NIVEL DE CONFIANZA**: Indica qué tan confiado estás en tu predicción (Alto/Medio/Bajo)
 
-Sé específico y fundamenta tu análisis con los datos proporcionados."""
+Sé específico y fundamenta tu análisis con los datos proporcionados. Responde en español."""
 
         user_prompt = f"""Datos Macroeconómicos de FRED:
 {economic_data}
@@ -611,7 +616,8 @@ Sé específico y fundamenta tu análisis con los datos proporcionados."""
 {news_data}
 
 Analiza estos datos y noticias para predecir el impacto en el S&P 500. 
-Proporciona tu predicción (POSITIVO/NEGATIVO/NEUTRAL), análisis detallado y nivel de confianza."""
+Proporciona tu predicción (POSITIVO/NEGATIVO/NEUTRAL), análisis detallado y nivel de confianza.
+Responde en español."""
 
         # Generar respuesta
         response = model.generate_content(
@@ -642,12 +648,14 @@ def stream_analysis_with_gemini(
         genai.configure(api_key=api_key)
         
         # Seleccionar modelo
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         # Construir el prompt
         system_prompt = """Eres un analista macroeconómico experto especializado en predecir el impacto de eventos internacionales 
 en el mercado estadounidense. Tu tarea es analizar noticias y datos económicos de Asia, Australia y Europa 
 para inferir el impacto potencial en el índice S&P 500.
+
+IMPORTANTE: Debes responder SIEMPRE en ESPAÑOL.
 
 Debes proporcionar:
 1. **PREDICCIÓN DE IMPACTO**: Una de estas tres opciones:
@@ -664,7 +672,7 @@ Debes proporcionar:
 
 3. **NIVEL DE CONFIANZA**: Indica qué tan confiado estás en tu predicción (Alto/Medio/Bajo)
 
-Sé específico y fundamenta tu análisis con los datos proporcionados."""
+Sé específico y fundamenta tu análisis con los datos proporcionados. Responde en español."""
 
         user_prompt = f"""Datos Macroeconómicos de FRED:
 {economic_data}
@@ -672,7 +680,8 @@ Sé específico y fundamenta tu análisis con los datos proporcionados."""
 {news_data}
 
 Analiza estos datos y noticias para predecir el impacto en el S&P 500. 
-Proporciona tu predicción (POSITIVO/NEGATIVO/NEUTRAL), análisis detallado y nivel de confianza."""
+Proporciona tu predicción (POSITIVO/NEGATIVO/NEUTRAL), análisis detallado y nivel de confianza.
+Responde en español."""
 
         # Generar respuesta con streaming
         response = model.generate_content(
@@ -751,20 +760,24 @@ if fred_data_state:
                     unsafe_allow_html=True,
                 )
 
-    for series_name, metadata, df, _ in snapshots:
-        st.markdown(f"### {series_name}")
-        st.caption(metadata["description"])
-        if df.empty:
-            st.info(
-                "Sin datos disponibles en el rango seleccionado. Ajusta las fechas o intenta más tarde."
+    # Todas las gráficas en un acordeón global
+    with st.expander(f"📊 Ver gráficas de {len(snapshots)} series económicas", expanded=False):
+        for series_name, metadata, df, _ in snapshots:
+            st.markdown(f"### {series_name}")
+            st.caption(metadata["description"])
+            if df.empty:
+                st.info(
+                    "Sin datos disponibles en el rango seleccionado. "
+                    "Intenta seleccionar una fecha menos reciente o un rango más amplio."
+                )
+                continue
+            display_df = (
+                df.set_index("date")[["value"]]
+                .rename(columns={"value": series_name})
             )
-            continue
-        display_df = (
-            df.set_index("date")[["value"]]
-            .rename(columns={"value": series_name})
-        )
-        st.line_chart(display_df)
-        st.caption(build_series_summary(series_name, metadata, df))
+            st.line_chart(display_df)
+            st.caption(build_series_summary(series_name, metadata, df))
+            st.divider()
 else:
     st.info(
         "Utiliza la barra lateral para cargar indicadores de FRED y enriquecer el contexto macroeconómico."
@@ -799,15 +812,15 @@ has_news_data = bool(news_context and news_context != "No hay noticias disponibl
 if not has_economic_data and not has_news_data:
     st.info(
         "💡 **Para comenzar el análisis:**\n\n"
-        "1. Ingresa tus API keys de FRED y NewsAPI en el panel lateral\n"
-        "2. Selecciona las series económicas que deseas analizar\n"
+        "1. Asegúrate de que las API keys estén configuradas (variables de entorno)\n"
+        "2. Selecciona las series económicas que deseas analizar en el panel lateral\n"
         "3. Haz clic en '🔄 Actualizar datos y analizar'\n\n"
         "El sistema analizará automáticamente los datos y noticias para predecir el impacto en el S&P 500."
     )
 elif not gemini_configured:
     st.error(
         "El modelo de IA no está disponible. "
-        "Asegúrate de haber ingresado tu API key de Google Gemini en el panel lateral."
+        "Configura la API key de Google Gemini en la variable de entorno GEMINI_API_KEY."
     )
 else:
     # Realizar análisis automático cuando hay datos
@@ -850,7 +863,7 @@ else:
             st.rerun()
     else:
         st.info(
-            "Haz clic en '🔄 Actualizar datos y analizar' en el panel lateral "
+            "Haz clic en '🔄 Actualizar datos y analizar' "
             "para generar un nuevo análisis basado en los datos más recientes."
         )
 
