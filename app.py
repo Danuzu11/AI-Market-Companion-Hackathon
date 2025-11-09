@@ -246,6 +246,7 @@ with st.sidebar:
         include_news_input = st.checkbox(
             "Incluir titulares regionales", value=include_news_default
         )
+        
         if include_news_input:
             newsapi_key_input = st.text_input(
                 "API key de NewsAPI",
@@ -268,7 +269,12 @@ with st.sidebar:
             newsapi_key_input = ""
             news_regions_input = []
             news_categories_input = []
-
+        
+        # # Desatiuvamosación de variables para evitar errores porque ApiNews es muy corto el limite    
+        # newsapi_key_input = ""
+        # news_regions_input = []
+        # news_categories_input = []
+        
         submitted = st.form_submit_button(
             "Actualizar datos macro", use_container_width=True
         )
@@ -375,19 +381,21 @@ with main_col:
             )
             sources_to_fetch.append("macro_regional")
 
-        if (
-            st.session_state.get("include_news")
-            and st.session_state.get("news_regions")
-            and st.session_state.get("news_categories")
-        ):
-            params_by_source["news_public"] = dict(
-                regions=st.session_state["news_regions"],
-                categories=st.session_state["news_categories"],
-                api_key=st.session_state.get("newsapi_key", DEFAULT_NEWSAPI_KEY),
-            )
-            sources_to_fetch.append("news_public")
-        else:
-            params_by_source["news_public"] = dict(regions=[], categories=[], api_key="")
+        # Disabled NewsAPI backend fetching: keep the sidebar UI for visual purposes
+        # but do NOT include it in sources_to_fetch or perform any API calls.
+        # if (
+        #     st.session_state.get("include_news")
+        #     and st.session_state.get("news_regions")
+        #     and st.session_state.get("news_categories")
+        # ):
+        #     params_by_source["news_public"] = dict(
+        #         regions=st.session_state["news_regions"],
+        #         categories=st.session_state["news_categories"],
+        #         api_key=st.session_state.get("newsapi_key", DEFAULT_NEWSAPI_KEY),
+        #     )
+        #     sources_to_fetch.append("news_public")
+        # else:
+        params_by_source["news_public"] = dict(regions=[], categories=[], api_key="")
 
         for source_id in sources_to_fetch:
             config: SourceConfig = SOURCE_REGISTRY[source_id]
@@ -540,39 +548,9 @@ with main_col:
             st.markdown(f"#### {label}")
             st.dataframe(table)
 
-    if news_feedback:
-        for level, message in news_feedback:
-            display_fn = getattr(st, level, st.info)
-            display_fn(f"Noticias públicas: {message}")
-
-    if news_items:
-        st.markdown("### Noticias públicas")
-        for region_id, items in news_items.items():
-            label = REGIONAL_MACRO_REGIONS.get(region_id, region_id.title())
-            st.markdown(f"#### {label}")
-            for entry in items:
-                # Formatear timestamp para mostrar
-                try:
-                    ts = datetime.fromisoformat(entry['timestamp'].replace("Z", "+00:00"))
-                    ts_formatted = ts.strftime("%Y-%m-%d %H:%M UTC")
-                except:
-                    ts_formatted = entry.get('timestamp', 'N/A')
-                
-                # Obtener información de tendencia si está disponible
-                tendencia_info = ""
-                if 'tendencia' in entry:
-                    tendencia_emoji = "📈" if entry.get('es_alzista', False) else "📉"
-                    tendencia_info = (
-                        f" · {tendencia_emoji} **{entry['tendencia']}** "
-                        f"(p={entry.get('p', 0):.2f}, q={entry.get('q', 0):.2f}, s={entry.get('s', 0):.2f}, "
-                        f"Tasa: {entry.get('tasa', 0):.3f})"
-                    )
-                
-                st.markdown(
-                    f"- **{entry['headline']}** · {entry['category']} · {ts_formatted} "
-                    f"({entry['sentiment']}){tendencia_info} — {entry['blurb']} "
-                    f"*(Fuente: {entry['source']})*"
-                )
+    # NewsAPI rendering disabled: backend fetching/commented out.
+    # The sidebar still shows visual controls for news, but no requests are made.
+    # st.info("Noticias públicas: deshabilitadas en el backend. La UI mantiene controles visuales pero no hay análisis ni llamadas a NewsAPI.")
 
 
 
