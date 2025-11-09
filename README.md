@@ -171,3 +171,14 @@ El sistema utiliza todo el contexto cargado (datos de FRED, indicadores regional
 - Los servicios mock (`mock_macro_service.py` y `mock_news_service.py`) ya no se utilizan pero se mantienen en el proyecto por referencia
 - El análisis de sentimiento se basa en el prototipo incluido en `Prototipo código.ipynb`
 - Las API keys se pueden configurar tanto en el archivo `.env` como en la interfaz de Streamlit
+
+## Notas De segunda version
+- Se desarrollo una segunda version que usa GEMINI y un enfoque mas estatico de analisis de noticias , en la segunda rama llamada luismar , esta version fue realizada con el objetivo de darle otro enfoque a la solucion mas estatico a diferencia de un chatbot normal
+- Para acceder a ella debe hacer lo siguiente despues de clonar el proyecto 
+
+```bash
+# IMPORTANTE Si aun no tienes importado el ollama despues de instalarlo debes ejecutar esto en terminal
+git fetch
+git checkout luismar
+```
+- Una ves cambiado de rama sigue los pasos de instalacion del Readme de esa rama
