@@ -1,0 +1,31 @@
+# Archivo de configuración con API keys (no subir al repositorio)
+.env
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# Conda
+.conda/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Streamlit
+.streamlit/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
