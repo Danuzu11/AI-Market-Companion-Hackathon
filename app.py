@@ -32,9 +32,10 @@ load_dotenv()
 # DEFAULT_EODHD_API_KEY = os.getenv("EODHD_API_KEY", "")
 
 DEFAULT_FRED_API_KEY = "50a935159ab3675d78c5af42132e2700"
-DEFAULT_NEWSAPI_KEY = "43bc8d4c74cf4d089bfa2970df75ba62"
-DEFAULT_EODHD_API_KEY = "690f6492e73213.87491169"
-
+# DEFAULT_NEWSAPI_KEY = "43bc8d4c74cf4d089bfa2970df75ba62"
+# DEFAULT_EODHD_API_KEY = "690f6492e73213.87491169"
+DEFAULT_NEWSAPI_KEY = "11cffdcf1802449cab0ff5ddc30ad92d"
+DEFAULT_EODHD_API_KEY = "6910928b7e9373.87218035"
 
 # Configuración de la página
 st.set_page_config(
@@ -56,7 +57,7 @@ st.markdown(
     }
 
     section[data-testid="stSidebar"] {
-        width: 600px !important;
+        width: 700px !important;
         position: fixed;
         top: 0;
         left: 0;
@@ -66,13 +67,16 @@ st.markdown(
         border-right: 1px solid rgba(148,163,184,0.08);
         z-index: 99;
     }
+
     section[data-testid="stSidebar"] > div {
         height: 100%;
         overflow-y: auto;
         padding-right: 0.35rem;
     }
     main[data-testid="stAppViewContainer"] {
-        margin-left: 380px;
+        margin-left: 700px;
+        /* limit main content width so chat area is less wide */
+        max-width: calc(100% - 700px);
     }
     main[data-testid="stAppViewContainer"] .block-container {
         padding-left: 2.4rem;
@@ -90,6 +94,11 @@ st.markdown(
         box-shadow: 0 20px 40px -30px rgba(29,78,216,0.6);
         margin-bottom: 0.9rem;
     }
+
+    .main-card { margin-top: 8px; }
+    .main-card .subtitle { color: #9ca3af; font-size: 0.95rem; margin-top:6px }
+    .main-card .intro-grid { display:flex; gap:18px; margin-top:12px }
+    .main-card .intro-grid .item { flex:1; background: rgba(255,255,255,0.02); padding:10px; border-radius:8px; color:#cbd5e1 }
     .metric-title {
         font-size: 0.95rem;
         font-weight: 600;
@@ -119,17 +128,17 @@ st.markdown(
     }
 
 
-    /* Chat: historial con espacio inferior para que no quede oculto */
+
     .chat-panel .history {
         max-height: 60vh;
         overflow-y: auto;
         padding-bottom: 160px; /* espacio para el input fijo */
     }
 
-    /* Formulario de entrada fijo abajo, al lado del sidebar */
+
     .chat-input-fixed {
         position: fixed;
-        left: 380px; /* coincidir con el ancho del sidebar */
+        left: 700px; /* coincidir con el ancho del sidebar */
         right: 0;
         bottom: 18px;
         z-index: 999;
@@ -137,7 +146,12 @@ st.markdown(
         background: transparent;
     }
 
-    /* Ajustes visuales del area de texto para que encaje */
+    /* Make chat area visually narrower by capping block-container width */
+    main[data-testid="stAppViewContainer"] .block-container {
+        max-width: 760px;
+    }
+
+
     .chat-input-fixed .stTextArea>div, 
     .chat-input-fixed .stForm  {
         max-width: calc(100% - 48px);
@@ -147,6 +161,8 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# (Navbar/header/footer left visible by default)
 
 # Configuración de los datos macroeconómicos por defecto
 default_start = st.session_state.get(
@@ -168,6 +184,20 @@ news_categories_default = st.session_state.get("news_categories", NEWS_CATEGORIE
 
 # Configuración de la barra lateral y estilos de la misma
 with st.sidebar:
+
+    # Sidebar brand header
+    st.markdown(
+        """
+        <div style='display:flex;align-items:center;gap:10px;margin-bottom:12px;'>
+            <div style='font-size:28px;'>📊</div>
+            <div>
+                <div style='font-size:18px;font-weight:700;margin:0;color:#e6f0ff;'>EcoAsist</div>
+                <div style='font-size:12px;color:#9ca3af;margin-top:2px;'>Analítica Macro · S&P 500</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     with st.form("control_form"):
         st.markdown("<h3 style='margin-top:0;'>⚙ Configuración de fuentes</h3>", unsafe_allow_html=True)
@@ -296,11 +326,22 @@ with main_col:
     st.markdown(
         """
         <div class="main-card">
-            <h2 style="margin-top:0;">Panel de análisis</h2>
-            <p style="margin-bottom:0;">
-            EcoAsist consolida indicadores macro, señales regionales y titulares públicos para estimar el impacto potencial en el S&P 500.
-            Ajusta los parámetros anteriores y formula tu pregunta en el chat para obtener un diagnóstico guiado.
-            </p>
+            <h2 style="margin-top:0;">📈 EcoAsist · Analítica Macro</h2>
+            <div class="subtitle">Bienvenido — sintetizamos indicadores macro, señales regionales y titulares públicos para inferir posibles impactos en el S&P 500.</div>
+            <div class="intro-grid">
+                <div class="item">
+                    <strong>Qué hace</strong>
+                    <div>Integra series de FRED, señales regionales y titulares para ofrecer un diagnóstico cuantitativo y cualitativo.</div>
+                </div>
+                <div class="item">
+                    <strong>Cómo usar</strong>
+                    <div>Configura tus fuentes en la barra lateral y formula una consulta en el chat. P. ej.: "¿Riesgo de recesión para el próximo trimestre?"</div>
+                </div>
+                <div class="item">
+                    <strong>Limitaciones</strong>
+                    <div>Modelo orientativo: revisa las fuentes y toma este análisis como apoyo, no como recomendación de inversión.</div>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
