@@ -22,6 +22,9 @@ Aplicación construida con Streamlit que combina datos macroeconómicos de múlt
 ## Instalación
 
 ```bash
+# IMPORTANTE Si aun no tienes importado el ollama despues de instalarlo debes ejecutar esto en terminal
+ollama pull mistral
+
 # Crear entorno virtual
 python -m venv venv
 
